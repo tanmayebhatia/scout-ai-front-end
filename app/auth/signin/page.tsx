@@ -50,7 +50,14 @@ export default function SignIn() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <img src="/scout-logo-2.png" alt="Scout Logo" width={50} height={50} className="mr-2" />
+            <Image 
+              src="/scout-logo-2.png" 
+              alt="Scout Logo" 
+              width={50} 
+              height={50} 
+              className="mr-2"
+              priority
+            />
             <h1 className="text-4xl font-medium tracking-tight scout-title">scout</h1>
           </div>
           {/* Removed "Professional network intelligence" text */}
