@@ -19,7 +19,7 @@ export async function GET() {
       status: "success",
       message: "Pinecone connection successful",
       indexName,
-      vectorCount: stats.totalVectorCount,
+      vectorCount: stats.totalRecordCount,
       dimensions: stats.dimension,
     })
   } catch (error) {
