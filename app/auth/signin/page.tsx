@@ -57,6 +57,10 @@ export default function SignIn() {
               height={50} 
               className="mr-2"
               priority
+              unoptimized
+              onError={(e) => {
+                console.error('Image failed to load:', e);
+              }}
             />
             <h1 className="text-4xl font-medium tracking-tight scout-title">scout</h1>
           </div>
