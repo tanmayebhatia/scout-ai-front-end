@@ -19,6 +19,7 @@ export default function UtilitiesPage() {
   const [linkedinUrl, setLinkedinUrl] = useState("")
   const [showAccessDialog, setShowAccessDialog] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isUpdatingContacts, setIsUpdatingContacts] = useState(false)
   const consoleEndRef = useRef<HTMLDivElement>(null)
 
   // Add a message to the console
@@ -139,9 +140,99 @@ export default function UtilitiesPage() {
     }
   }
 
-  // Show access restricted dialog
-  const showAccessRestricted = () => {
-    setShowAccessDialog(true)
+  // Handle updating all contacts
+  const handleUpdateContacts = async () => {
+    setIsUpdatingContacts(true)
+    setConsoleMessages([]) // Clear previous logs
+    addConsoleMessage("Starting contact update process...", "info")
+
+    try {
+      // Call our Next.js API route which will proxy to the Railway API
+      const response = await fetch("/api/update-contacts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({
+          batchSize: 10,
+          maxConcurrent: 5,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`API returned error status: ${response.status}`)
+      }
+
+      if (!response.body) {
+        throw new Error("Response body is null")
+      }
+
+      // Process the stream
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+
+      // Function to process stream chunks
+      const processStream = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+
+            if (done) {
+              // End of stream
+              addConsoleMessage("Update process completed", "success")
+              break
+            }
+
+            // Decode the chunk and add to buffer
+            const chunk = decoder.decode(value, { stream: true })
+            buffer += chunk
+
+            // Process complete lines in the buffer
+            const lines = buffer.split("\n")
+            buffer = lines.pop() || "" // Keep the last incomplete line in the buffer
+
+            for (const line of lines) {
+              if (line.trim() === "") continue
+
+              // Check if it's a server-sent event
+              if (line.startsWith("data: ")) {
+                try {
+                  const eventData = line.substring(6) // Remove "data: " prefix
+                  const logData = JSON.parse(eventData)
+
+                  // Add the log message to the console
+                  addConsoleMessage(logData.message || "Unknown log message", logData.type || "info")
+                } catch (e) {
+                  // If it's not valid JSON, just display the raw line
+                  addConsoleMessage(`Raw log: ${line}`, "info")
+                }
+              } else {
+                // Handle plain text logs
+                addConsoleMessage(line, "info")
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error processing stream:", error)
+          addConsoleMessage(
+            `Error processing stream: ${error instanceof Error ? error.message : String(error)}`,
+            "error",
+          )
+        }
+      }
+
+      // Start processing the stream
+      processStream().finally(() => {
+        setIsUpdatingContacts(false)
+        addConsoleMessage("Update contacts process complete", "success")
+      })
+    } catch (error) {
+      console.error("Error updating contacts:", error)
+      addConsoleMessage(`Error: ${error instanceof Error ? error.message : "Unknown error occurred"}`, "error")
+      setIsUpdatingContacts(false)
+    }
   }
 
   // Handle Enter key press in the input field
@@ -162,7 +253,15 @@ export default function UtilitiesPage() {
             <span className="text-sm">Back to Search</span>
           </Link>
           <div className="flex items-center ml-auto">
-            <Image src="/scout-logo-2.png" alt="Scout Logo" width={30} height={30} className="mr-2" />
+            <Image
+              src="/scout-logo.png"
+              alt="Scout Logo"
+              width={30}
+              height={30}
+              className="mr-3"
+              unoptimized
+              priority
+            />
             <h1 className="text-2xl font-medium text-gray-800">Utilities</h1>
           </div>
         </div>
@@ -209,7 +308,7 @@ export default function UtilitiesPage() {
             </div>
           </div>
 
-          {/* Refresh Contacts Section - Streamlined */}
+          {/* Update Contacts Section - Now functional */}
           <div className="apple-card p-6 transition-all hover:shadow-md">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -217,16 +316,26 @@ export default function UtilitiesPage() {
                   <RefreshCw className="h-4 w-4 text-gray-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-medium text-gray-800">Refresh Contacts</h2>
-                  <p className="text-gray-400 text-xs mt-1">Refresh all contacts with latest information.</p>
+                  <h2 className="text-lg font-medium text-gray-800">Update Contacts</h2>
+                  <p className="text-gray-400 text-xs mt-1">Update all new contacts with latest information.</p>
                 </div>
               </div>
               <button
-                onClick={showAccessRestricted}
+                onClick={handleUpdateContacts}
+                disabled={isUpdatingContacts}
                 className="ml-4 px-4 py-2 bg-gray-300 text-white rounded-xl text-sm hover:bg-green-200 hover:text-gray-700 transition-colors flex items-center shadow-sm"
               >
-                Go
-                <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                {isUpdatingContacts ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    Go
+                    <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -244,7 +353,7 @@ export default function UtilitiesPage() {
                 </div>
               </div>
               <button
-                onClick={showAccessRestricted}
+                onClick={showAccessDialog}
                 className="ml-4 px-4 py-2 bg-gray-300 text-white rounded-xl text-sm hover:bg-green-200 hover:text-gray-700 transition-colors flex items-center shadow-sm"
               >
                 Go
@@ -290,6 +399,16 @@ export default function UtilitiesPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Feature Request Link */}
+      <div className="fixed bottom-4 right-4">
+        <a
+          href="slack://user?team=T03KQRA9L&id=U0785GVQNMC"
+          className="text-gray-300 hover:text-gray-500 text-xs transition-colors"
+        >
+          send tanmaye feature requests
+        </a>
       </div>
 
       {/* Access Restricted Dialog */}

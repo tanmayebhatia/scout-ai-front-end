@@ -3,7 +3,19 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import { ChevronDown, ChevronUp, Copy, X, Briefcase, Loader2, ExternalLink, MapPin, LogOut } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  X,
+  Briefcase,
+  Loader2,
+  ExternalLink,
+  MapPin,
+  LogOut,
+  Check,
+  FileOutputIcon as FileExport,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -69,6 +81,12 @@ export default function Home() {
   const searchFormRef = useRef<HTMLFormElement>(null)
   const searchInputRef = useRef<HTMLTextAreaElement>(null)
 
+  // State for selected profiles
+  const [selectedProfiles, setSelectedProfiles] = useState<Set<string>>(new Set())
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportText, setExportText] = useState("")
+  const [isExportButtonClicked, setIsExportButtonClicked] = useState(false)
+
   // Fetch debug info on component mount
   useEffect(() => {
     const fetchDebugInfo = async () => {
@@ -95,9 +113,72 @@ export default function Home() {
     setExpandedProfiles(newExpanded)
   }
 
+  const toggleProfileSelection = (id: string) => {
+    const newSelected = new Set(selectedProfiles)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedProfiles(newSelected)
+  }
+
+  const handleExport = () => {
+    if (selectedProfiles.size === 0 || !searchResults) return
+
+    setIsExportButtonClicked(true)
+
+    // Reset the clicked state after animation completes
+    setTimeout(() => {
+      setIsExportButtonClicked(false)
+    }, 300)
+
+    // Generate export text
+    let text = ""
+    searchResults.matches.forEach((result) => {
+      if (selectedProfiles.has(result.id)) {
+        const profile = result.metadata
+        text += `Name: ${profile.full_name}\n`
+        text += `Summary: ${profile.concise_summary || profile.ai_summary}\n`
+        text += `Current Role: ${cleanCurrentRole(profile.current_role || "")}\n`
+        text += `LinkedIn: https://linkedin.com/in/${profile.linkedin_url}\n\n`
+      }
+    })
+
+    setExportText(text)
+    setExportModalOpen(true)
+  }
+
+  const copyExportText = () => {
+    navigator.clipboard.writeText(exportText)
+
+    // Update the button text to provide feedback
+    const exportButton = document.getElementById("export-copy-button")
+    if (exportButton) {
+      const originalContent = exportButton.innerHTML
+      exportButton.innerHTML =
+        '<svg class="h-3.5 w-3.5 mr-1.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Copied!'
+
+      // Close the modal after a short delay
+      setTimeout(() => {
+        setExportModalOpen(false)
+
+        // Reset the button after the modal is closed
+        setTimeout(() => {
+          if (exportButton) {
+            exportButton.innerHTML = originalContent
+          }
+        }, 300)
+      }, 1000)
+    } else {
+      // Fallback if button element isn't found
+      setExportModalOpen(false)
+    }
+  }
+
   const openEmailModal = async (profile: ProfileMetadata) => {
     setEmailModal({ isOpen: true, profile })
-    setEmailSubject(`Connecting from Prime Re-Ventures`)
+    setEmailSubject(`Connecting from Primary Ventures`)
     setIsGeneratingEmail(true)
 
     try {
@@ -123,7 +204,7 @@ export default function Home() {
       console.error("Error generating email:", error)
       // Fallback email template
       setEmailBody(
-        `I'm [Your Name] from Prime Re-Ventures and I'm reaching out based on our research into ${searchQuery}. With your experience at ${profile.current_company}, I think we would learn a lot from you. Do you have 30 minutes to chat in the coming weeks?
+        `I'm [Your Name] from Primary Ventures and I'm reaching out based on our research into ${searchQuery}. With your experience at ${profile.current_company}, I think we would learn a lot from you. Do you have 30 minutes to chat in the coming weeks?
 
 Best,`,
       )
@@ -160,6 +241,7 @@ ${emailBody}`
     setIsSearching(true)
     setErrorMessage(null)
     setSearchResults(null) // Clear previous results
+    setSelectedProfiles(new Set()) // Clear selected profiles
 
     try {
       console.log(`Sending search request for: "${searchQuery}" with location: ${location}`)
@@ -260,6 +342,12 @@ ${emailBody}`
     return role ? role.replace("(CURRENT)", "").trim() : "Professional"
   }
 
+  // Helper function to check if location is "None" and return empty string
+  const formatLocation = (locationText?: string) => {
+    if (!locationText) return ""
+    return locationText.toLowerCase() === "none" ? "" : locationText
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-white to-gray-50 flex flex-col">
       <div className="w-full max-w-4xl mx-auto px-4 py-8 flex-1 flex flex-col">
@@ -281,7 +369,15 @@ ${emailBody}`
           </div>
           <div className="flex items-center justify-center flex-1">
             <div className="flex items-center scout-logo-container">
-              <Image src="/scout-logo-2.png" alt="Scout Logo" width={40} height={40} className="mr-2" priority />
+              <Image
+                src="/scout-logo.png"
+                alt="Scout Logo"
+                width={40}
+                height={40}
+                className="mr-3"
+                priority
+                unoptimized
+              />
               <h1 className="text-3xl font-medium tracking-tight scout-title">scout</h1>
             </div>
           </div>
@@ -324,7 +420,7 @@ ${emailBody}`
 
               {/* Results Header */}
               {searchResults.matches && searchResults.matches.length > 0 && (
-                <div className="mb-6 text-center">
+                <div className="mb-6 flex items-center justify-between max-w-2xl mx-auto">
                   <h2 className="text-lg text-gray-600 font-normal">
                     {searchResults.pagination.totalResults}{" "}
                     {searchResults.pagination.totalResults === 1 ? "Result" : "Results"}
@@ -361,21 +457,21 @@ ${emailBody}`
                             </span>
                           </div>
 
-                          {/* Location */}
-                          {result.metadata.location && (
+                          {/* Location - Only show if it's not "None" */}
+                          {result.metadata.location && formatLocation(result.metadata.location) && (
                             <div className="flex items-center">
                               <MapPin className="h-3 w-3 text-gray-400 mr-1" />
-                              <span className="text-gray-500">{result.metadata.location}</span>
+                              <span className="text-gray-500">{formatLocation(result.metadata.location)}</span>
                             </div>
                           )}
                         </div>
 
                         {/* Action Buttons Group */}
                         <div className="flex items-center gap-2">
-                          {/* AI Email Button */}
+                          {/* AI Email Button - First/Leftmost */}
                           <AIButton onClick={() => openEmailModal(result.metadata)} />
 
-                          {/* LinkedIn Button */}
+                          {/* LinkedIn Button - Second */}
                           <a
                             href={`https://linkedin.com/in/${result.metadata.linkedin_url}`}
                             target="_blank"
@@ -386,7 +482,7 @@ ${emailBody}`
                             <ExternalLink className="h-3.5 w-3.5" />
                           </a>
 
-                          {/* Toggle Past Roles Button */}
+                          {/* Toggle Past Roles Button - Third */}
                           <button
                             onClick={() => toggleProfileExpansion(result.id)}
                             className="flex items-center justify-center w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-sm text-gray-400 hover:text-gray-600 hover:shadow-md transition-all"
@@ -397,6 +493,21 @@ ${emailBody}`
                             ) : (
                               <ChevronDown className="h-3.5 w-3.5" />
                             )}
+                          </button>
+
+                          {/* Checkbox Button - Fourth/Rightmost */}
+                          <button
+                            onClick={() => toggleProfileSelection(result.id)}
+                            className={`flex items-center justify-center w-7 h-7 rounded-full backdrop-blur-sm border shadow-sm transition-all ${
+                              selectedProfiles.has(result.id)
+                                ? "bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200"
+                                : "bg-white/80 border-gray-200/50 text-gray-400 hover:text-gray-600 hover:shadow-md"
+                            }`}
+                            aria-label={selectedProfiles.has(result.id) ? "Deselect profile" : "Select profile"}
+                          >
+                            <Check
+                              className={`h-3.5 w-3.5 ${selectedProfiles.has(result.id) ? "opacity-100" : "opacity-0"}`}
+                            />
                           </button>
                         </div>
                       </div>
@@ -496,6 +607,31 @@ ${emailBody}`
         </div>
       </div>
 
+      {/* Export Button - Fixed at bottom-right, above feature request link */}
+      {selectedProfiles.size > 0 && (
+        <div className="fixed bottom-12 right-4 z-20">
+          <button
+            onClick={handleExport}
+            className={`flex items-center justify-center rounded-full px-4 py-2 text-xs font-normal transition-all duration-200 shadow-sm ${
+              isExportButtonClicked ? "bg-gray-800 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            <FileExport className="h-3.5 w-3.5 mr-1.5" />
+            Export {selectedProfiles.size}
+          </button>
+        </div>
+      )}
+
+      {/* Feature Request Link */}
+      <div className="fixed bottom-4 right-4">
+        <a
+          href="slack://user?team=T03KQRA9L&id=U0785GVQNMC"
+          className="text-gray-300 hover:text-gray-500 text-xs transition-colors"
+        >
+          send tanmaye feature requests
+        </a>
+      </div>
+
       {/* Email Modal */}
       <Dialog open={emailModal.isOpen} onOpenChange={(open) => !open && closeEmailModal()}>
         <DialogContent className="sm:max-w-[500px] rounded-2xl border border-gray-200/50 bg-white/90 backdrop-blur-lg">
@@ -556,6 +692,45 @@ ${emailBody}`
               disabled={isGeneratingEmail}
             >
               <Copy className="h-3 w-3 mr-1.5" />
+              Copy to Clipboard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Modal */}
+      <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
+        <DialogContent className="sm:max-w-[500px] rounded-2xl border border-gray-200/50 bg-white/90 backdrop-blur-lg">
+          <DialogHeader>
+            <DialogTitle className="text-gray-800 font-medium text-base">
+              Export {selectedProfiles.size} {selectedProfiles.size === 1 ? "Profile" : "Profiles"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-3">
+            <Textarea
+              value={exportText}
+              readOnly
+              rows={12}
+              className="resize-none border border-gray-100 rounded-xl focus:ring-0 focus:border-gray-200 bg-transparent text-gray-800 text-xs font-mono"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setExportModalOpen(false)}
+              className="bg-white/80 backdrop-blur-sm border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full text-xs font-normal h-8"
+            >
+              <X className="h-3 w-3 mr-1.5" />
+              Close
+            </Button>
+            <Button
+              id="export-copy-button"
+              onClick={copyExportText}
+              className="bg-gray-900 text-white hover:bg-gray-800 rounded-full text-xs font-normal h-8"
+            >
+              <Copy className="h-3.5 w-3.5 mr-1.5" />
               Copy to Clipboard
             </Button>
           </DialogFooter>

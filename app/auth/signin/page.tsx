@@ -5,7 +5,6 @@ import type React from "react"
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useSearchParams, useRouter } from "next/navigation"
-import Image from "next/image"
 
 export default function SignIn() {
   const router = useRouter()
@@ -48,31 +47,26 @@ export default function SignIn() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-gray-50 flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <Image 
-              src="/scout-logo-2.png" 
-              alt="Scout Logo" 
-              width={50} 
-              height={50} 
-              className="mr-2"
-              priority
-              unoptimized
-              onError={(e) => {
-                console.error('Image failed to load:', e);
-              }}
-            />
-            <h1 className="text-4xl font-medium tracking-tight scout-title">scout</h1>
-          </div>
-          {/* Removed "Professional network intelligence" text */}
+        {/* Logo Row */}
+        <div className="flex items-center justify-center mb-8">
+          {/* <Image
+          src="/scout-logo.png"
+          alt="Scout Logo"
+          width={40}
+          height={40}
+          className="mr-3"
+          priority
+          unoptimized
+        />*/}
+          <h1 className="text-4xl font-medium tracking-tight scout-title">scout</h1>
         </div>
 
         <div className="bg-white/80 backdrop-blur-lg rounded-2xl border border-gray-200/50 shadow-sm p-8">
+          {/* 
           <div className="text-center mb-6">
             <h2 className="text-xl font-medium text-gray-800">Welcome to Scout</h2>
-            {/* Removed "Sign in to continue" text */}
           </div>
-
+          */}
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl">
               <p className="text-red-600 text-xs text-center">
@@ -188,7 +182,9 @@ export default function SignIn() {
           )}
         </div>
 
-        <p className="text-gray-400 text-xs text-center mt-8">Scout is a private tool for Primary VC</p>
+        <p className="text-gray-400 text-xs text-center mt-8">
+          Scout is a private tool for Primary VC. designed by tanmaye
+        </p>
       </div>
     </div>
   )
