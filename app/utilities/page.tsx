@@ -4,8 +4,8 @@ import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Plus, RefreshCw, Database, AlertCircle, ArrowRight, Loader2 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ArrowLeft, Plus, RefreshCw, Database, AlertCircle, ArrowRight, Loader2, Lock } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import Image from "next/image"
 
 interface ConsoleMessage {
@@ -21,6 +21,12 @@ export default function UtilitiesPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isUpdatingContacts, setIsUpdatingContacts] = useState(false)
   const consoleEndRef = useRef<HTMLDivElement>(null)
+
+  // Password protection states
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+  const [password, setPassword] = useState("")
+  const [passwordError, setPasswordError] = useState("")
+  const [isValidatingPassword, setIsValidatingPassword] = useState(false)
 
   // Add a message to the console
   const addConsoleMessage = (message: string, type?: "info" | "success" | "error") => {
@@ -140,8 +146,42 @@ export default function UtilitiesPage() {
     }
   }
 
-  // Handle updating all contacts
-  const handleUpdateContacts = async () => {
+  // Show password dialog before updating contacts
+  const promptForPassword = () => {
+    setPassword("")
+    setPasswordError("")
+    setShowPasswordDialog(true)
+  }
+
+  // Validate password and proceed with update if correct
+  const validatePasswordAndUpdate = async () => {
+    setIsValidatingPassword(true)
+    setPasswordError("")
+
+    try {
+      // Simple password validation against the predefined string
+      const correctPassword = "networks"
+
+      if (password === correctPassword) {
+        // Password is correct, close dialog and proceed with update
+        setShowPasswordDialog(false)
+        setIsValidatingPassword(false)
+        // Now proceed with the actual update
+        await executeUpdateContacts()
+      } else {
+        // Password is incorrect
+        setPasswordError("Incorrect password. Please try again.")
+        setIsValidatingPassword(false)
+      }
+    } catch (error) {
+      console.error("Error validating password:", error)
+      setPasswordError("An error occurred during validation.")
+      setIsValidatingPassword(false)
+    }
+  }
+
+  // Handle updating all contacts - actual implementation
+  const executeUpdateContacts = async () => {
     setIsUpdatingContacts(true)
     setConsoleMessages([]) // Clear previous logs
     addConsoleMessage("Starting contact update process...", "info")
@@ -243,6 +283,14 @@ export default function UtilitiesPage() {
     }
   }
 
+  // Handle Enter key press in the password field
+  const handlePasswordKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      validatePasswordAndUpdate()
+    }
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-white to-gray-50">
       <div className="w-full max-w-4xl mx-auto px-4 py-8">
@@ -308,7 +356,7 @@ export default function UtilitiesPage() {
             </div>
           </div>
 
-          {/* Update Contacts Section - Now functional */}
+          {/* Update Contacts Section - Now with password protection */}
           <div className="apple-card p-6 transition-all hover:shadow-md">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -321,7 +369,7 @@ export default function UtilitiesPage() {
                 </div>
               </div>
               <button
-                onClick={handleUpdateContacts}
+                onClick={promptForPassword}
                 disabled={isUpdatingContacts}
                 className="ml-4 px-4 py-2 bg-gray-300 text-white rounded-xl text-sm hover:bg-green-200 hover:text-gray-700 transition-colors flex items-center shadow-sm"
               >
@@ -434,6 +482,58 @@ export default function UtilitiesPage() {
               Close
             </button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Dialog */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="sm:max-w-[400px] rounded-2xl border border-gray-200/50 bg-white/90 backdrop-blur-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-gray-800 font-medium text-base">
+              <Lock className="h-5 w-5 text-gray-500 mr-2" />
+              Authentication Required
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-4">
+              <p className="text-gray-600 text-sm">Please enter the password to proceed with updating contacts.</p>
+              <div className="relative">
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={handlePasswordKeyDown}
+                  placeholder="Enter password"
+                  className="w-full px-4 py-2 rounded-xl border border-gray-200 bg-white/80 backdrop-blur-sm text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                  disabled={isValidatingPassword}
+                  autoFocus
+                />
+                {passwordError && <p className="text-red-500 text-xs mt-2">{passwordError}</p>}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex justify-between">
+            <button
+              onClick={() => setShowPasswordDialog(false)}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={validatePasswordAndUpdate}
+              disabled={isValidatingPassword || !password.trim()}
+              className="px-4 py-2 bg-gray-800 text-white rounded-xl text-sm hover:bg-gray-700 transition-colors flex items-center"
+            >
+              {isValidatingPassword ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                  Validating...
+                </>
+              ) : (
+                "Continue"
+              )}
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </main>
